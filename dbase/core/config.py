@@ -23,4 +23,10 @@ class Settings(BaseSettings):
         extra = 'allow'
 
 
+class Constants:
+    NORMA = 10
+    PAGE_SIZE = 5
+
+
 settings = Settings()
+constants = Constants()

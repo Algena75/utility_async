@@ -105,7 +105,7 @@ FROM buildings b;
 
 GET_BUILDING = \
 """
-SELECT b.*, a.number, a.square::text, array(
+SELECT b.*, a.id, a.number, a.square::text, array(
                 SELECT c.counter_number
                 FROM counters c
                 WHERE c.apartment = a.id) AS counters
@@ -136,4 +136,54 @@ VALUES ($1, $2, $3)
 ON CONFLICT ON CONSTRAINT apartments_building_number_key
 DO UPDATE SET square = excluded.square
 RETURNING *;
+"""
+
+NEW_COUNTERS = \
+"""
+INSERT INTO counters (apartment, counter_number)
+SELECT $1, x
+FROM unnest(ARRAY{values}) x
+ON CONFLICT DO NOTHING
+RETURNING *;
+"""
+
+GET_BILLS = \
+"""
+SELECT a.number, b.water, b.community_property, b.total
+FROM bills b
+JOIN apartments a ON b.apartment = a.id
+WHERE a.building = $1 AND b.year = $2 AND b.month = $3;
+"""
+
+GET_COUNTER_VALUES = \
+"""
+SELECT *
+FROM counter_values
+WHERE counter_number = $1 AND make_date(year, month, 1) <= make_date($2, $3, 1)
+ORDER BY year DESC, month DESC
+LIMIT 2;
+"""
+
+SET_COUNTER_VALUES = \
+"""
+INSERT INTO counter_values (counter_number, year, month, value)
+VALUES ($1, $2, $3, $4);
+"""
+
+GET_TARIFFS = \
+"""
+SELECT * 
+FROM tariffs
+WHERE make_date($1, $2, 1) BETWEEN from_date AND until_date
+OR (make_date($1, $2, 1) >= from_date AND until_date is null);
+"""
+
+SET_BILL = \
+"""
+INSERT INTO bills (apartment, year, month, water, community_property, total)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT ON CONSTRAINT bills_apartment_month_year_key
+DO UPDATE SET water = excluded.water,
+              community_property = excluded.community_property, 
+              total = excluded.total;
 """
