@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  redis:
+    restart: unless-stopped
+    image: redis:7.0.5-alpine 
+    ports:
+      - '6379:6379'
