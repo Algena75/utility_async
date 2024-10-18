@@ -2,8 +2,9 @@ from aiohttp import web
 from aiohttp.web_request import Request
 from aiohttp.web_response import Response
 
-from dbase.core.config import constants, settings
+from dbase.core.config import settings
 from dbase.services import commands as cmd
+from dbase.core.celery import calculate_bills
 from dbase.services.utils import (get_building_details, validate_bill_data,
                                   validate_data)
 
@@ -81,46 +82,12 @@ async def get_bills(request: Request) -> Response:
 
 
 @routes.post('/bills/{building_id}/{year}/{month}')
-async def calculate_bills(request: Request) -> Response:
+async def add_task_bills_calculation(request: Request) -> Response:
     building, year, month = await validate_bill_data(request)
-    db = request.app[settings.DB_KEY]
-    apartment_list = await db.fetch(cmd.GET_BUILDING, building.get('id'))
-    tariffs = await db.fetch(cmd.GET_TARIFFS, year, month)
-    for row in tariffs:
-        if dict(row).get('tariff_name') == 'WA':
-            water_tariff = dict(row).get('value')
-        elif dict(row).get('tariff_name') == 'CP':
-            cp_tariff = dict(row).get('value')
-    for apartment in apartment_list:
-        counters = apartment.get('counters')
-        water_difference = 0
-        if counters:
-            for counter in counters:
-                counter_values = await db.fetch(cmd.GET_COUNTER_VALUES,
-                                                counter, year, month)
-                if all([len(counter_values) == 2,
-                        counter_values[0][2] == year,
-                        counter_values[0][1] == month]):
-                    water_difference += (counter_values[0][3] -
-                                         counter_values[1][3])
-                elif all([len(counter_values) == 1,
-                          counter_values[0][2] == year,
-                          counter_values[0][1] == month]):
-                    water_difference += counter_values[0][3]
-                elif len(counter_values) == 2 or len(counter_values) == 1:
-                    water_difference += constants.NORMA
-                    await db.fetch(cmd.SET_COUNTER_VALUES,
-                                   counter, year, month,
-                                   counter_values[0][3] + constants.NORMA)
-                else:
-                    water_difference += constants.NORMA
-                    await db.fetch(cmd.SET_COUNTER_VALUES,
-                                   counter, year, month,
-                                   constants.NORMA)
-        else:
-            water_difference += constants.NORMA
-        water =  round(float(water_difference) * float(water_tariff), 2)
-        community_property = round(float(apartment[6]) * float(cp_tariff), 2)
-        await db.fetch(cmd.SET_BILL,
-                       apartment[4], year, month,
-                       water, community_property, water + community_property)
+    building.update(year=year, month=month)
+    try:
+        calculate_bills.delay(building)
+    except Exception as e:
+        raise Exception()
+    return web.json_response({'message': 'Сформирована задача для дома:',
+                              'building': building})
