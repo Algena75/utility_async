@@ -26,6 +26,10 @@ asyncpg = {version = "0.29.0", extras = ["postgres"]}
 aiohttp = "^3.10.5"
 celery = {version = "^5.4.0", extras = ["redis"]}
 
+
+[tool.poetry.group.test.dependencies]
+flake8 = "^7.1.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -1,5 +1,8 @@
-from celery import Celery
 import asyncio
+
+from celery import Celery
+
+from dbase.services.utils import calculate_bill
 
 app = Celery("backend")
 
@@ -7,8 +10,6 @@ app.config_from_object("dbase.core.config", namespace="CELERY")
 app.conf.broker_connection_retry_on_startup = True
 
 app.autodiscover_tasks()
-
-from dbase.services.utils import calculate_bill
 
 
 @app.task

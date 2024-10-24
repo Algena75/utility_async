@@ -32,7 +32,7 @@ async def create_database_if_not_exists():
         print('Таблицы созданы!')
         """For database testing."""
         dirname = os.path.dirname(os.path.abspath(sys.argv[0]))
-        tables = ('buildings','apartments', 'counters', 'tariffs',
+        tables = ('buildings', 'apartments', 'counters', 'tariffs',
                   'counter_values')
         for table in tables:
             file = os.path.join(dirname, f'core/temp/{table}.csv')
@@ -42,9 +42,11 @@ async def create_database_if_not_exists():
                     data_list = [line.strip().split(',') for line in data]
                     if table == 'buildings':
                         for line in data_list:
-                            bld_number = None if line[3]=='' else int(line[3])
+                            bld_number = (
+                                None if line[3] == '' else int(line[3])
+                            )
                             await connection.execute(
-                                f"""
+                                """
                                 INSERT INTO buildings (street, house_number,
                                                        bld_number)
                                 VALUES ($1, $2, $3);
@@ -54,14 +56,13 @@ async def create_database_if_not_exists():
                     else:
                         for line in data_list:
                             await connection.execute(
-                                f"""
+                                """
                                 INSERT INTO apartments (building, number,
                                                         square)
                                 VALUES ($1, $2, $3);
                                 """,
                                 int(line[1]), int(line[2]), float(line[3])
                             )
-
             else:
                 await connection.execute(cmd.FILL_TABLE.format(table=table,
                                                                file=file))
@@ -70,6 +71,7 @@ async def create_database_if_not_exists():
 
 
 async def create_database_pool(app: Application):
+    """Создание пула для асинхронного подключения к БД."""
     pool: Pool = await asyncpg.create_pool(**st.CONNECTION_DATA,
                                            min_size=6,
                                            max_size=6)
@@ -77,5 +79,6 @@ async def create_database_pool(app: Application):
 
 
 async def destroy_database_pool(app: Application):
+    """Закрытие пула для асинхронного подключения к БД."""
     pool: Pool = app[st.DB_KEY]
     await pool.close()
